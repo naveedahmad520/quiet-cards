@@ -216,7 +216,7 @@
 
     <div class="field">
       <label>Child's name</label>
-      <input type="text" id="kidname" value="Ali" autocomplete="off">
+      <input type="text" id="kidname" value="" autocomplete="off" placeholder="optional, used in the spoken greeting">
     </div>
 
     <div class="field">
@@ -399,7 +399,7 @@
 
 /* ---------------- state ---------------- */
 var S = {
-  name:"Ali", sensory:"soft", theme:"animals", mode:"mixed", len:16,
+  name:"", sensory:"soft", theme:"animals", mode:"mixed", len:16,
   reinforcer:"his toy", tokens:3, tokensNow:0, wait:12, voiceURI:"", slop:70,
   errmode:"retry", retries:0, tokenThisTrial:false,
   deck:[], trial:0, fatigue:0, field:2, breaks:0, log:[],
@@ -578,11 +578,11 @@ $("testvoice").addEventListener("click", function(){
   primeSpeech();
   var was = S.sensory;
   if(S.sensory === "calm") S.sensory = "soft";
-  speak("Hi " + S.name + "! Where is the ball?", true);
+  speak((S.name ? "Hi " + S.name + "! " : "Hi! ") + "Where is the ball?", true);
   S.sensory = was;
 });
 
-$("kidname").addEventListener("input", function(){ S.name = this.value.trim() || "your child"; });
+$("kidname").addEventListener("input", function(){ S.name = this.value.trim(); });
 $("reinforcer").addEventListener("input", function(){ S.reinforcer = this.value.trim() || "his toy"; });
 
 function drawDeck(){
@@ -820,7 +820,7 @@ function clearTimers(){
 }
 
 /* ---------------- touch handling ----------------
-   Three things were losing Ali's taps:
+   Three things were losing taps:
    1. `click` only fires if press and release land on the same element. A small
       finger that rolls or drags a few pixels never produced a click at all.
    2. A tap in the gutter between two cards hit nothing.
@@ -1060,7 +1060,7 @@ function finish(){
   var acc = n ? Math.round(indep/n*100) : 0;
 
   $("donetitle").textContent = "Done for now";
-  $("donesub").textContent = S.name + " stayed with it for " + n + " card" + (n===1?"":"s") + ".";
+  $("donesub").textContent = (S.name || "He") + " stayed with it for " + n + " card" + (n===1?"":"s") + ".";
   $("st-trials").textContent = n;
   $("st-acc").textContent = acc + "%";
   $("st-breaks").textContent = outs;

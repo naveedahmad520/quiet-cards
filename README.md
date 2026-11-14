@@ -1,2 +1,2 @@
 # quiet-cards
-Flashcard for Ali or kids on spectrum for speech
+Flashcards for kids on the autism spectrum, built for speech practice.
