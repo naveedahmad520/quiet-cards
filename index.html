@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Quiet Cards</title>
+<style>
+  :root{
+    --bg:#f7f5f1; --card:#ffffff; --ink:#2b2b2b; --muted:#7a7570;
+    --line:#e3ded6; --accent:#6b8e7f; --accent-soft:#e8efe9;
+    --warn:#c98a5a; --radius:20px;
+  }
+  [data-theme="trains"]{ --accent:#4a6fa5; --accent-soft:#e6ecf5; }
+  [data-theme="dinos"]{ --accent:#6b8e5a; --accent-soft:#eaf0e5; }
+  [data-theme="space"]{ --accent:#6a5f8e; --accent-soft:#ece9f3; }
+  [data-theme="animals"]{ --accent:#b08055; --accent-soft:#f4ebe2; }
+  [data-theme="vehicles"]{ --accent:#a35f5f; --accent-soft:#f5e9e9; }
+
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    overscroll-behavior:none; touch-action:manipulation;
+  }
+  .screen{display:none; min-height:100vh; min-height:100dvh; flex-direction:column;}
+  .screen.on{display:flex;}
+  button{font-family:inherit; cursor:pointer; border:none; background:none; color:inherit;}
+
+  /* ---------- Setup ---------- */
+  .wrap{max-width:640px; margin:0 auto; padding:28px 20px 60px; width:100%;}
+  h1{font-size:26px; margin:0 0 4px; font-weight:650; letter-spacing:-.3px;}
+  .sub{color:var(--muted); font-size:15px; margin:0 0 28px; line-height:1.5;}
+  .field{margin-bottom:24px;}
+  .field > label{display:block; font-size:13px; font-weight:650; text-transform:uppercase;
+    letter-spacing:.6px; color:var(--muted); margin-bottom:9px;}
+  .hint{font-size:13px; color:var(--muted); margin-top:7px; line-height:1.45;}
+  input[type=text],input[type=number],select{
+    width:100%; padding:13px 14px; font-size:16px; border:1.5px solid var(--line);
+    border-radius:12px; background:var(--card); color:var(--ink); font-family:inherit;
+  }
+  input:focus,select:focus{outline:none; border-color:var(--accent);}
+  .seg{display:flex; gap:8px; flex-wrap:wrap;}
+  .seg button{
+    flex:1; min-width:92px; padding:12px 10px; border:1.5px solid var(--line);
+    border-radius:12px; background:var(--card); font-size:14px; font-weight:600;
+    transition:.15s; color:var(--muted);
+  }
+  .seg button.sel{border-color:var(--accent); background:var(--accent-soft); color:var(--accent);}
+  .seg.small button{font-size:13px; padding:10px 8px; min-width:70px;}
+  .primary{
+    width:100%; padding:17px; background:var(--accent); color:#fff; border-radius:14px;
+    font-size:17px; font-weight:650; margin-top:8px;
+  }
+  .primary:active{opacity:.85;}
+  .ghost{
+    padding:11px 16px; border:1.5px solid var(--line); border-radius:11px;
+    font-size:14px; font-weight:600; color:var(--muted); background:var(--card);
+  }
+  .row{display:flex; gap:10px; flex-wrap:wrap;}
+  .row .ghost{flex:1;}
+
+  /* ---------- Deck editor ---------- */
+  .deck{display:flex; flex-wrap:wrap; gap:8px; margin-top:4px;}
+  .chip{
+    display:flex; align-items:center; gap:7px; padding:8px 11px; background:var(--card);
+    border:1.5px solid var(--line); border-radius:11px; font-size:14px;
+  }
+  .chip .ci{font-size:19px; line-height:1;}
+  .chip img{width:22px;height:22px;object-fit:cover;border-radius:5px;}
+  .chip .x{color:var(--muted); font-size:17px; padding:0 2px; line-height:1;}
+  .addrow{display:flex; gap:8px; margin-top:10px; align-items:stretch;}
+  .addrow input[type=text]{flex:1;}
+  .addrow .ghost{white-space:nowrap;}
+
+  /* ---------- Session ---------- */
+  .bar{
+    display:flex; align-items:center; gap:12px; padding:11px 16px;
+    border-bottom:1px solid var(--line); background:var(--card); flex-shrink:0;
+  }
+  .bar .lbl{font-size:11px; color:var(--muted); font-weight:650; letter-spacing:.5px;
+    text-transform:uppercase; white-space:nowrap;}
+  .meter{flex:1; height:7px; background:var(--line); border-radius:4px; overflow:hidden;}
+  .meter i{display:block; height:100%; width:0%; background:var(--accent);
+    transition:width .5s ease, background .5s ease; border-radius:4px;}
+  .bar .cnt{font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap;}
+  .bar .quit{font-size:20px; color:var(--muted); padding:0 2px; line-height:1;}
+  /* adult controls live up here, out of the reach of a hand on the cards */
+  .bar .skip{
+    font-size:11px; font-weight:650; color:var(--muted); text-transform:uppercase;
+    letter-spacing:.5px; border:1.5px solid var(--line); border-radius:8px;
+    padding:5px 9px; line-height:1; white-space:nowrap;
+  }
+  .bar .skip[hidden]{display:none;}
+
+  .tokens{
+    display:flex; align-items:center; justify-content:center; gap:11px;
+    padding:13px; background:var(--card); border-bottom:1px solid var(--line);
+    flex-shrink:0;
+  }
+  .tok{
+    width:19px; height:19px; border-radius:50%; border:2.5px solid var(--line);
+    background:transparent; transition:.35s ease;
+  }
+  .tok.on{background:var(--accent); border-color:var(--accent); transform:scale(1.14);}
+  .tokens .goal{
+    font-size:13px; color:var(--muted); font-weight:650; margin-left:5px;
+    max-width:44vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+
+  .stage{flex:1; display:flex; flex-direction:column; justify-content:center;
+    padding:20px; gap:22px; max-width:900px; margin:0 auto; width:100%;}
+  .prompt{text-align:center; font-size:clamp(24px,5.5vw,36px); font-weight:600; letter-spacing:-.3px;}
+  .prompt b{color:var(--accent); font-weight:700;}
+  /* #area is the flex child of .stage, so it has to carry the growth */
+  #area{flex:1; min-height:0; display:flex; flex-direction:column; justify-content:center; gap:16px;}
+  .choices{display:grid; gap:10px; flex:1; min-height:0; touch-action:none;}
+  .choices.n1{grid-template-columns:1fr; max-width:340px; margin:0 auto; width:100%;}
+  .choices.n2{grid-template-columns:1fr 1fr;}
+  .choices.n3{grid-template-columns:1fr 1fr 1fr;}
+  .choices.n4{grid-template-columns:1fr 1fr;}
+  .pick{
+    background:var(--card); border:2px solid var(--line); border-radius:var(--radius);
+    width:100%; height:100%; min-height:130px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    font-size:clamp(56px,17vw,120px); transition:border-color .18s, background .18s, opacity .18s;
+    overflow:hidden; padding:8px; touch-action:none; user-select:none; -webkit-user-select:none;
+  }
+  /* let the picture grow with the card so a big target isn't mostly white space */
+  .choices.n2 .pick{font-size:clamp(64px,21vmin,230px);}
+  .choices.n3 .pick{font-size:clamp(56px,15vmin,160px);}
+  .choices.n4 .pick{font-size:clamp(52px,14vmin,150px);}
+  .pick.tapped{background:var(--accent-soft); border-color:var(--accent);}
+  .pick .face{display:flex; align-items:center; justify-content:center; flex:1; width:100%;}
+  .pick .wl{
+    display:none; font-size:clamp(15px,2.6vmin,22px); font-weight:650; letter-spacing:-.2px;
+    padding:2px 0 6px; color:var(--muted); text-transform:lowercase;
+  }
+  .pick.reveal .wl{display:block;}
+  .pick.reveal.right .wl{color:var(--accent);}
+  .pick.wrong{opacity:.55; background:#f0ede8;}
+  .pick.wrong .wl{color:var(--warn);}
+  .pick img{width:100%;height:100%;object-fit:contain;border-radius:12px;}
+  /* where his finger actually landed — helps you see near-misses */
+  .dot{
+    position:fixed; width:38px; height:38px; margin:-19px 0 0 -19px; border-radius:50%;
+    background:var(--accent); opacity:.4; pointer-events:none; z-index:99;
+    animation:fade .5s ease-out forwards;
+  }
+  @keyframes fade{ to{ opacity:0; transform:scale(2.1); } }
+  .pick img{width:100%;height:100%;object-fit:contain;border-radius:12px;}
+  .pick:active{transform:scale(.97);}
+  .pick.right{border-color:var(--accent); background:var(--accent-soft); opacity:1;}
+  .pick.hintme{border-color:var(--accent); border-style:dashed;}
+
+  .single{
+    background:var(--card); border:2px solid var(--line); border-radius:var(--radius);
+    padding:26px; display:flex; align-items:center; justify-content:center;
+    font-size:clamp(76px,26vw,150px); max-width:340px; margin:0 auto; width:100%;
+    aspect-ratio:1/1;
+  }
+  .single img{width:100%;height:100%;object-fit:contain;border-radius:14px;}
+  .score{display:flex; gap:9px; max-width:520px; margin:0 auto; width:100%;}
+  .score button{
+    flex:1; padding:15px 8px; border-radius:13px; border:1.5px solid var(--line);
+    background:var(--card); font-size:14px; font-weight:650; line-height:1.3;
+  }
+  .score button small{display:block; font-weight:500; font-size:11px; color:var(--muted); margin-top:3px;}
+  .score button.yes{border-color:var(--accent); color:var(--accent);}
+
+  .say{
+    text-align:center; font-size:14px; color:var(--muted); min-height:20px;
+  }
+
+  /* ---------- Break ---------- */
+  .break{flex:1; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:26px; padding:30px; text-align:center;}
+  .break .big{font-size:clamp(30px,7vw,44px); font-weight:650; letter-spacing:-.4px;}
+  .break .em{font-size:clamp(70px,20vw,120px);}
+  .break p{color:var(--muted); font-size:16px; max-width:400px; margin:0; line-height:1.55;}
+  .timer{font-size:44px; font-weight:650; color:var(--accent); font-variant-numeric:tabular-nums;}
+
+  /* ---------- Summary ---------- */
+  .stat{display:flex; gap:10px; margin-bottom:20px;}
+  .stat div{
+    flex:1; background:var(--card); border:1.5px solid var(--line); border-radius:14px;
+    padding:14px 12px; text-align:center;
+  }
+  .stat b{display:block; font-size:24px; font-weight:700; letter-spacing:-.5px;}
+  .stat span{font-size:11px; color:var(--muted); text-transform:uppercase;
+    letter-spacing:.5px; font-weight:650;}
+  .list{background:var(--card); border:1.5px solid var(--line); border-radius:14px;
+    padding:6px 14px; margin-bottom:20px;}
+  .list h3{font-size:12px; text-transform:uppercase; letter-spacing:.6px;
+    color:var(--muted); margin:14px 0 8px;}
+  .li{display:flex; justify-content:space-between; align-items:center;
+    padding:8px 0; border-bottom:1px solid var(--bg); font-size:15px;}
+  .li:last-child{border-bottom:none;}
+  .li .pct{color:var(--muted); font-size:13px; font-variant-numeric:tabular-nums;}
+  .note{background:var(--accent-soft); border-radius:14px; padding:16px 18px;
+    font-size:14px; line-height:1.6; margin-bottom:20px; color:#3d4a44;}
+  .note strong{display:block; margin-bottom:6px; font-size:12px; text-transform:uppercase;
+    letter-spacing:.6px;}
+  details{margin-top:26px; border-top:1px solid var(--line); padding-top:16px;}
+  summary{font-size:13px; color:var(--muted); cursor:pointer; font-weight:600;}
+  details p{font-size:13.5px; color:var(--muted); line-height:1.65;}
+</style>
+</head>
+<body data-theme="animals">
+
+<!-- ============ SETUP ============ -->
+<div class="screen on" id="s-setup">
+  <div class="wrap">
+    <h1>Quiet Cards</h1>
+    <p class="sub">Practice that watches for fatigue and stops before the shutdown — not after.</p>
+
+    <div class="field">
+      <label>Child's name</label>
+      <input type="text" id="kidname" value="Ali" autocomplete="off">
+    </div>
+
+    <div class="field">
+      <label>What does he go for when he's done?</label>
+      <input type="text" id="reinforcer" value="his toy" autocomplete="off" placeholder="e.g. blue truck, the wheels song, iPad">
+      <p class="hint">Name the thing he grabs to escape. That becomes what he <em>earns</em> instead — same item, opposite direction. Be specific; "his toy" works, "the blue truck" works better.</p>
+    </div>
+
+    <div class="field">
+      <label>Cards per reward</label>
+      <div class="seg small" id="seg-tokens">
+        <button data-v="2">2</button>
+        <button data-v="3" class="sel">3</button>
+        <button data-v="5">5</button>
+      </div>
+      <p class="hint">He sees the dots fill up, so he knows exactly how much is left. Start low — 3 is plenty. If he's checking out before filling the board, drop to 2.</p>
+    </div>
+
+    <div class="field">
+      <label>When he picks wrong</label>
+      <div class="seg small" id="seg-err">
+        <button data-v="move">Move on</button>
+        <button data-v="retry" class="sel">Name it, try again</button>
+        <button data-v="until">Until he gets it</button>
+      </div>
+      <p class="hint">"Name it, try again" tells him what he actually touched &mdash; "that's the book" &mdash; then re-asks the same card and points to the answer if he needs it, so the trial ends on him touching the right one. "Until he gets it" repeats up to three times. Tone stays neutral either way; errors shouldn't feel like a telling-off, or checking out starts to look like the better option.</p>
+    </div>
+
+    <div class="field">
+      <label>Touch help</label>
+      <div class="seg small" id="seg-slop">
+        <button data-v="0">Exact</button>
+        <button data-v="70" class="sel">Forgiving</button>
+        <button data-v="150">Very forgiving</button>
+      </div>
+      <p class="hint">Small fingers land wide. "Forgiving" counts a tap in the gap between cards as the nearest card; "Very forgiving" counts almost anywhere on screen. Cards also respond the instant he touches down rather than when he lifts off, so a smudged or dragged tap still registers. A grey dot shows you where his finger actually landed.</p>
+    </div>
+
+    <div class="field">
+      <label>How long to let him think</label>
+      <div class="seg small" id="seg-wait">
+        <button data-v="5">5 sec</button>
+        <button data-v="8">8 sec</button>
+        <button data-v="12" class="sel">12 sec</button>
+        <button data-v="20">20 sec</button>
+      </div>
+      <p class="hint">Time before the app helps. It nudges twice: at the halfway mark it just says the word again, and only at the full time does it point to the answer. Start at 12 and stretch it as he gets faster — the goal is for him to beat the clock on his own.</p>
+    </div>
+
+    <div class="field">
+      <label>Sound</label>
+      <div class="seg" id="seg-sensory">
+        <button data-v="calm">Off</button>
+        <button data-v="soft" class="sel">Soft</button>
+        <button data-v="playful">Playful</button>
+      </div>
+      <p class="hint" id="sensory-hint">A short low tone on correct, and the prompt is read aloud. The voice gives him a second channel to catch the word.</p>
+    </div>
+
+    <div class="field">
+      <label>Voice</label>
+      <select id="voicepick"></select>
+      <div class="row" style="margin-top:9px;">
+        <button class="ghost" id="testvoice">Hear it</button>
+      </div>
+      <p class="hint">Whatever's on the iPad — female voices are listed first. Tap "Hear it" and pick the one he responds to. On an iPad, Samantha or Nicky usually sound the warmest.</p>
+    </div>
+
+    <div class="field">
+      <label>Theme</label>
+      <div class="seg small" id="seg-theme">
+        <button data-v="animals" class="sel">Animals</button>
+        <button data-v="trains">Trains</button>
+        <button data-v="dinos">Dinos</button>
+        <button data-v="space">Space</button>
+        <button data-v="vehicles">Vehicles</button>
+      </div>
+      <p class="hint">Sets the colors and the break-time buddy. Pick whatever he's into right now.</p>
+    </div>
+
+    <div class="field">
+      <label>Practice type</label>
+      <div class="seg" id="seg-mode">
+        <button data-v="mixed" class="sel">Mixed</button>
+        <button data-v="receptive">Touch it</button>
+        <button data-v="expressive">Say it</button>
+      </div>
+      <p class="hint" id="mode-hint">Alternates between "touch the ___" (he picks) and "what is this?" (you score what he says). Mixed keeps it from feeling like a drill.</p>
+    </div>
+
+    <div class="field">
+      <label>Session length</label>
+      <div class="seg small" id="seg-len">
+        <button data-v="10">10 cards</button>
+        <button data-v="16" class="sel">16 cards</button>
+        <button data-v="24">24 cards</button>
+      </div>
+      <p class="hint">It will end early on its own if he's fading. That's the point.</p>
+    </div>
+
+    <div class="field">
+      <label>Cards</label>
+      <div class="deck" id="deckview"></div>
+      <div class="addrow">
+        <input type="text" id="newword" placeholder="word (e.g. cup)" autocomplete="off">
+        <button class="ghost" id="addbtn">Add</button>
+        <button class="ghost" id="photobtn">Photo</button>
+      </div>
+      <input type="file" id="photofile" accept="image/*" style="display:none">
+      <p class="hint">Add his own things — his cup, your car, grandma. Familiar photos beat clip art every time. Photo cards need a word typed in first.</p>
+      <div class="row" style="margin-top:12px;">
+        <button class="ghost" id="savedeck">Save deck to file</button>
+        <button class="ghost" id="loaddeck">Load deck</button>
+      </div>
+      <input type="file" id="deckfile" accept=".json,application/json" style="display:none">
+      <p class="hint">This is a prototype, so it can't remember your cards between visits. Save the deck to a file and load it back next time.</p>
+    </div>
+
+    <button class="primary" id="startbtn">Start</button>
+
+    <details>
+      <summary>How the pacing works</summary>
+      <p>The blank stare is the thing this is built around. Sitting in it indefinitely teaches him that going still makes demands stop — but cutting in too early teaches him that waiting produces the answer. So there are two stages: at the halfway mark it repeats the word without giving anything away, and only at the full wait does it outline the right card. Set that wait long enough that he usually beats it, and stretch it as he gets faster.</p>
+      <p>Behind that, every answer moves a hidden checkout-risk score: fast and right brings it down, slow answers and no-responses push it up. As it climbs the app makes things easier before he notices — drops in cards he already owns to rebuild momentum, then narrows four choices to three to two. Fill the dot board and he gets the thing he'd otherwise be escaping to. If the risk stays high after two rewards, it ends the session on a card he knows, so the last thing that happens is a win. The bar at the top is for you, not him.</p>
+    </details>
+  </div>
+</div>
+
+<!-- ============ SESSION ============ -->
+<div class="screen" id="s-play">
+  <div class="bar">
+    <span class="lbl">Focus</span>
+    <div class="meter"><i id="meterfill"></i></div>
+    <span class="cnt" id="counter">0/16</span>
+    <button class="skip" id="checkout">skip</button>
+    <button class="quit" id="quitbtn" aria-label="End session">&times;</button>
+  </div>
+  <div class="tokens" id="tokenbar"></div>
+  <div class="stage">
+    <div class="prompt" id="prompt"></div>
+    <div id="area"></div>
+    <div class="say" id="say"></div>
+  </div>
+</div>
+
+<!-- ============ BREAK ============ -->
+<div class="screen" id="s-break">
+  <div class="break">
+    <div class="em" id="breakemoji">🐘</div>
+    <div class="big" id="breaktitle">Let's move!</div>
+    <p id="breaktext">Jump five times. Or spin. Or a big squeeze — whatever helps him reset.</p>
+    <div class="timer" id="breaktimer">30</div>
+    <button class="primary" id="resumebtn" style="max-width:280px;">Ready</button>
+  </div>
+</div>
+
+<!-- ============ SUMMARY ============ -->
+<div class="screen" id="s-done">
+  <div class="wrap">
+    <h1 id="donetitle">Nice work</h1>
+    <p class="sub" id="donesub"></p>
+    <div class="stat">
+      <div><b id="st-trials">0</b><span>Cards</span></div>
+      <div><b id="st-acc">0%</b><span>Unprompted</span></div>
+      <div><b id="st-breaks">0</b><span>Checkouts</span></div>
+    </div>
+    <div class="note" id="whyended"></div>
+    <div class="list" id="itemlist"></div>
+    <button class="primary" id="againbtn">Again</button>
+    <div class="row" style="margin-top:10px;">
+      <button class="ghost" id="exportbtn">Export log for BCBA</button>
+      <button class="ghost" id="homebtn">Settings</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------------- state ---------------- */
+var S = {
+  name:"Ali", sensory:"soft", theme:"animals", mode:"mixed", len:16,
+  reinforcer:"his toy", tokens:3, tokensNow:0, wait:12, voiceURI:"", slop:70,
+  errmode:"retry", retries:0, tokenThisTrial:false,
+  deck:[], trial:0, fatigue:0, field:2, breaks:0, log:[],
+  cur:null, started:0, intersperse:false, ended:"", lastWrong:false,
+  running:false, breakTimer:null, promptTimer:null, nudgeTimer:null, prompted:false, checkouts:0
+};
+
+var STARTER = [
+  ["cup","🥤"],["ball","⚽"],["shoe","👟"],["dog","🐕"],["car","🚗"],
+  ["apple","🍎"],["book","📖"],["spoon","🥄"],["cat","🐈"],["hat","🧢"],
+  ["banana","🍌"],["bed","🛏️"]
+];
+
+var THEME_BUDDY = {animals:"🐘", trains:"🚂", dinos:"🦕", space:"🚀", vehicles:"🚚"};
+
+var SENSORY_HINT = {
+  calm:"Fully silent — no tones, no spoken prompt. Use this if the sound itself becomes the distraction.",
+  soft:"A short low tone on correct, and the prompt is read aloud. The voice gives him a second channel to catch the word.",
+  playful:"Two-note chime, a little brighter. Use it if the sound genuinely perks him up rather than pulling him away."
+};
+var MODE_HINT = {
+  mixed:"Alternates between “touch the ___” (he picks) and “what is this?” (you score what he says). Mixed keeps it from feeling like a drill.",
+  receptive:"Only “touch the ___”. No speech demand, so it's the lowest-effort version. Best when he's been checking out.",
+  expressive:"Only “what is this?”. You tap what he said. Highest demand — expect him to check out sooner."
+};
+
+/* ---------------- helpers ---------------- */
+function $(id){ return document.getElementById(id); }
+function show(id){
+  var xs = document.querySelectorAll(".screen");
+  for(var i=0;i<xs.length;i++) xs[i].classList.remove("on");
+  $(id).classList.add("on");
+  window.scrollTo(0,0);
+}
+function uid(){ return "c" + (uid.n = (uid.n||0) + 1) + "_" + S.deck.length; }
+
+function newCard(word, emoji, img){
+  return { id:uid(), word:word, emoji:emoji||"🔷", img:img||null,
+           hist:[], attempts:0, correct:0 };
+}
+function mastered(c){
+  if(c.hist.length < 3) return false;
+  var t = c.hist.slice(-3);
+  return t[0] && t[1] && t[2];
+}
+function shuffle(a){
+  for(var i=a.length-1;i>0;i--){
+    var j = pick(i+1); var t=a[i]; a[i]=a[j]; a[j]=t;
+  }
+  return a;
+}
+/* seeded-ish variety without Math.random dependence issues */
+var _seed = 20260814;
+function pick(n){
+  _seed = (_seed * 1103515245 + 12345) & 0x7fffffff;
+  return _seed % n;
+}
+
+/* quiet audio — generated, never loud */
+var actx = null;
+function beep(kind){
+  if(S.sensory === "calm") return;
+  try{
+    if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)();
+    var notes = (S.sensory === "playful") ? [523.25, 659.25] : [392.00];
+    var vol = (S.sensory === "playful") ? 0.10 : 0.06;
+    if(kind === "soft") { notes = [261.63]; vol = 0.04; }
+    /* a gentle two-note fall, not a buzzer — an error shouldn't feel like a penalty */
+    if(kind === "no") { notes = [329.63, 261.63]; vol = 0.05; }
+    for(var i=0;i<notes.length;i++){
+      var o = actx.createOscillator(), g = actx.createGain();
+      o.type = "sine"; o.frequency.value = notes[i];
+      var t0 = actx.currentTime + i*0.13;
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(vol, t0+0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0+0.30);
+      o.connect(g); g.connect(actx.destination);
+      o.start(t0); o.stop(t0+0.34);
+    }
+  }catch(e){}
+}
+/* ---- voices ---- */
+var VOICES = [];
+/* names that are female across iOS, macOS, Android, Windows */
+var FEM = /samantha|karen|moira|tessa|fiona|victoria|allison|ava|susan|zira|hazel|nicky|serena|aria|jenny|michelle|catherine|female|woman|sonia|libby|natasha|clara|amber|ana|joanna|salli|kimberly|kendra|emma|amy|nora|kate|linda|heather|zoe/i;
+var MASC = /alex|daniel|fred|tom|male|man|david|mark|george|james|oliver|ryan|guy|aaron|arthur|gordon|rishi|junior|reed|eddy|grandpa|rocko/i;
+
+function voiceScore(v){
+  var s = 0, n = (v.name || "") + " " + (v.voiceURI || "");
+  if(FEM.test(n)) s += 100;
+  if(MASC.test(n)) s -= 100;
+  if(/^en[-_]US/i.test(v.lang)) s += 20;
+  else if(/^en/i.test(v.lang)) s += 12;
+  else s -= 60;
+  /* higher-quality engines on Apple/Google devices */
+  if(/enhanced|premium|neural|natural|siri/i.test(n)) s += 25;
+  if(/compact|eloquence/i.test(n)) s -= 15;
+  if(v.localService) s += 5;
+  return s;
+}
+function loadVoices(){
+  try{
+    if(!window.speechSynthesis) return;
+    var all = window.speechSynthesis.getVoices() || [];
+    VOICES = all.filter(function(v){ return /^en/i.test(v.lang); });
+    if(!VOICES.length) VOICES = all.slice();
+    VOICES.sort(function(a,b){ return voiceScore(b) - voiceScore(a); });
+    var sel = $("voicepick");
+    if(!sel) return;
+    if(!VOICES.length){ sel.innerHTML = '<option value="">Device default</option>'; return; }
+    var h = "";
+    for(var i=0;i<VOICES.length;i++){
+      var v = VOICES[i];
+      var tag = FEM.test(v.name) ? "" : (MASC.test(v.name) ? "  (male)" : "");
+      h += '<option value="'+encodeURIComponent(v.voiceURI)+'">'+v.name+tag+'</option>';
+    }
+    sel.innerHTML = h;
+    if(!S.voiceURI) S.voiceURI = VOICES[0].voiceURI;
+    sel.value = encodeURIComponent(S.voiceURI);
+  }catch(e){}
+}
+function getVoice(){
+  for(var i=0;i<VOICES.length;i++) if(VOICES[i].voiceURI === S.voiceURI) return VOICES[i];
+  return VOICES[0] || null;
+}
+function speak(text, lively){
+  if(S.sensory === "calm") return;
+  try{
+    if(!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance(text);
+    var v = getVoice();
+    if(v) { u.voice = v; u.lang = v.lang; }
+    /* warmer and brighter than default — kids track a lifted pitch better */
+    u.rate = lively ? 1.0 : 0.92;
+    u.pitch = lively ? 1.35 : 1.2;
+    u.volume = 0.9;
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+/* iOS won't speak until an utterance is fired from a real tap */
+function primeSpeech(){
+  try{
+    if(!window.speechSynthesis) return;
+    var u = new SpeechSynthesisUtterance(" ");
+    u.volume = 0.01;
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+/* ---------------- setup UI ---------------- */
+function segs(wrapId, key, after){
+  var w = $(wrapId);
+  w.addEventListener("click", function(e){
+    var b = e.target.closest("button"); if(!b) return;
+    var bs = w.querySelectorAll("button");
+    for(var i=0;i<bs.length;i++) bs[i].classList.remove("sel");
+    b.classList.add("sel");
+    S[key] = (key === "len") ? parseInt(b.dataset.v,10) : b.dataset.v;
+    if(after) after();
+  });
+}
+segs("seg-sensory","sensory", function(){ $("sensory-hint").textContent = SENSORY_HINT[S.sensory]; });
+segs("seg-theme","theme", function(){ document.body.dataset.theme = S.theme; });
+segs("seg-mode","mode", function(){ $("mode-hint").textContent = MODE_HINT[S.mode]; });
+segs("seg-len","len");
+segs("seg-tokens","tokens");
+segs("seg-wait","wait");
+segs("seg-slop","slop");
+segs("seg-err","errmode");
+
+$("voicepick").addEventListener("change", function(){
+  S.voiceURI = decodeURIComponent(this.value);
+});
+$("testvoice").addEventListener("click", function(){
+  primeSpeech();
+  var was = S.sensory;
+  if(S.sensory === "calm") S.sensory = "soft";
+  speak("Hi " + S.name + "! Where is the ball?", true);
+  S.sensory = was;
+});
+
+$("kidname").addEventListener("input", function(){ S.name = this.value.trim() || "your child"; });
+$("reinforcer").addEventListener("input", function(){ S.reinforcer = this.value.trim() || "his toy"; });
+
+function drawDeck(){
+  var h = "";
+  for(var i=0;i<S.deck.length;i++){
+    var c = S.deck[i];
+    var face = c.img ? '<img src="'+c.img+'" alt="">' : '<span class="ci">'+c.emoji+'</span>';
+    h += '<span class="chip">'+face+c.word+'<button class="x" data-i="'+i+'" aria-label="remove">&times;</button></span>';
+  }
+  $("deckview").innerHTML = h;
+}
+$("deckview").addEventListener("click", function(e){
+  var b = e.target.closest("button"); if(!b) return;
+  S.deck.splice(parseInt(b.dataset.i,10), 1);
+  drawDeck();
+});
+$("addbtn").addEventListener("click", function(){
+  var w = $("newword").value.trim();
+  if(!w) return;
+  S.deck.push(newCard(w.toLowerCase(), "🔷", null));
+  $("newword").value = "";
+  drawDeck();
+});
+$("newword").addEventListener("keydown", function(e){ if(e.key === "Enter") $("addbtn").click(); });
+
+$("photobtn").addEventListener("click", function(){
+  if(!$("newword").value.trim()){ $("newword").placeholder = "type the word first!"; $("newword").focus(); return; }
+  $("photofile").click();
+});
+$("photofile").addEventListener("change", function(){
+  var f = this.files && this.files[0]; if(!f) return;
+  var word = $("newword").value.trim().toLowerCase() || "photo";
+  var r = new FileReader();
+  r.onload = function(ev){
+    var im = new Image();
+    im.onload = function(){
+      /* downscale so exported decks stay small */
+      var m = 400, s = Math.min(1, m/Math.max(im.width, im.height));
+      var cv = document.createElement("canvas");
+      cv.width = Math.round(im.width*s); cv.height = Math.round(im.height*s);
+      cv.getContext("2d").drawImage(im, 0, 0, cv.width, cv.height);
+      S.deck.push(newCard(word, "🖼️", cv.toDataURL("image/jpeg", 0.8)));
+      $("newword").value = "";
+      drawDeck();
+    };
+    im.src = ev.target.result;
+  };
+  r.readAsDataURL(f);
+  this.value = "";
+});
+
+$("savedeck").addEventListener("click", function(){
+  var out = S.deck.map(function(c){ return {word:c.word, emoji:c.emoji, img:c.img}; });
+  dl(JSON.stringify({v:1, deck:out}, null, 1), "quiet-cards-deck.json", "application/json");
+});
+$("loaddeck").addEventListener("click", function(){ $("deckfile").click(); });
+$("deckfile").addEventListener("change", function(){
+  var f = this.files && this.files[0]; if(!f) return;
+  var r = new FileReader();
+  r.onload = function(ev){
+    try{
+      var d = JSON.parse(ev.target.result);
+      var arr = d.deck || d;
+      if(!arr.length) return;
+      S.deck = arr.map(function(c){ return newCard(c.word, c.emoji, c.img); });
+      drawDeck();
+    }catch(e){ alertless("Couldn't read that file."); }
+  };
+  r.readAsText(f);
+  this.value = "";
+});
+function alertless(msg){ $("newword").placeholder = msg; }
+function dl(text, name, type){
+  var b = new Blob([text], {type:type});
+  var u = URL.createObjectURL(b);
+  var a = document.createElement("a");
+  a.href = u; a.download = name;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(u); }, 1000);
+}
+
+/* ---------------- session ---------------- */
+$("startbtn").addEventListener("click", function(){
+  if(S.deck.length < 3){ return; }
+  primeSpeech();
+  S.trial = 0; S.fatigue = 0; S.field = 2; S.breaks = 0; S.tokensNow = 0; S.checkouts = 0;
+  S.log = []; S.ended = ""; S.lastWrong = false; S.running = true;
+  for(var i=0;i<S.deck.length;i++){ S.deck[i].hist = []; S.deck[i].attempts = 0; S.deck[i].correct = 0; }
+  show("s-play");
+  nextTrial();
+});
+$("quitbtn").addEventListener("click", function(){ S.ended = "You ended the session."; finish(); });
+$("checkout").addEventListener("click", function(){
+  if(!S.running || !S.cur || S.cur.type !== "r") return;
+  clearTimers();
+  S.checkouts++;
+  record(false, "none");
+  setTimeout(advance, 200);
+});
+
+function drawMeter(){
+  var pctLeft = Math.max(0, 100 - S.fatigue);
+  var f = $("meterfill");
+  f.style.width = pctLeft + "%";
+  f.style.background = S.fatigue >= 75 ? "var(--warn)" : "var(--accent)";
+  $("counter").textContent = S.trial + "/" + S.len;
+  var h = "";
+  for(var i=0;i<S.tokens;i++) h += '<span class="tok' + (i < S.tokensNow ? " on" : "") + '"></span>';
+  h += '<span class="goal">' + S.reinforcer + '</span>';
+  $("tokenbar").innerHTML = h;
+}
+
+function chooseCard(){
+  var un = [], ma = [];
+  for(var i=0;i<S.deck.length;i++){
+    (mastered(S.deck[i]) ? ma : un).push(S.deck[i]);
+  }
+  /* behavioral momentum: after a struggle, hand him one he owns */
+  if(S.intersperse && ma.length){
+    S.intersperse = false;
+    return ma[pick(ma.length)];
+  }
+  if(!un.length) return S.deck[pick(S.deck.length)];
+  /* favour least-practised */
+  un.sort(function(a,b){ return a.attempts - b.attempts; });
+  var slice = un.slice(0, Math.max(1, Math.ceil(un.length/2)));
+  return slice[pick(slice.length)];
+}
+
+function faceHTML(c){
+  return c.img ? '<img src="'+c.img+'" alt="'+c.word+'">' : c.emoji;
+}
+/* the word is hidden until an answer is given, then revealed on every card —
+   naming what he actually touched is the teaching part of an error */
+function pickHTML(c){
+  return '<span class="face">'+faceHTML(c)+'</span><span class="wl">'+c.word+'</span>';
+}
+function cardById(id){
+  for(var i=0;i<S.deck.length;i++) if(S.deck[i].id === id) return S.deck[i];
+  return null;
+}
+function revealAll(chosenEl, target){
+  var btns = $("area").querySelectorAll(".pick");
+  for(var i=0;i<btns.length;i++){
+    btns[i].disabled = true;
+    btns[i].style.opacity = "";
+    btns[i].classList.add("reveal");
+    btns[i].classList.remove("hintme","tapped");
+    if(btns[i].dataset.id === target.id) btns[i].classList.add("right");
+    else if(btns[i] === chosenEl) btns[i].classList.add("wrong");
+  }
+}
+
+function nextTrial(){
+  if(!S.running) return;
+  if(S.trial >= S.len){ S.ended = "Reached the end of the set."; return finish(); }
+  S.trial++;
+  S.retries = 0;
+  S.tokenThisTrial = false;
+  drawMeter();
+  $("say").textContent = "";
+
+  var c = chooseCard();
+  var type;
+  if(S.mode === "receptive") type = "r";
+  else if(S.mode === "expressive") type = "e";
+  else type = (S.trial % 3 === 0) ? "e" : "r";
+  /* never demand speech when he's already fading */
+  if(type === "e" && S.fatigue >= 55) type = "r";
+
+  S.cur = {card:c, type:type, t0:Date.now()};
+
+  if(type === "r") renderReceptive(c);
+  else renderExpressive(c);
+}
+
+function renderReceptive(c, isRetry){
+  var opts;
+  if(isRetry && S.cur && S.cur.opts){
+    /* same cards in the same places — a correction re-presents the trial,
+       it doesn't hand him a new puzzle */
+    opts = S.cur.opts;
+  } else {
+    var n = Math.max(2, Math.min(S.field, S.deck.length));
+    opts = [c];
+    var pool = S.deck.filter(function(d){ return d.id !== c.id; });
+    shuffle(pool);
+    for(var i=0;i<pool.length && opts.length<n;i++) opts.push(pool[i]);
+    shuffle(opts);
+  }
+  S.cur = {card:c, type:"r", t0:Date.now(), opts:opts};
+
+  $("prompt").innerHTML = "Where is the <b>" + c.word + "</b>?";
+  var h = '<div class="choices n' + opts.length + '">';
+  for(var j=0;j<opts.length;j++){
+    h += '<button class="pick" data-id="'+opts[j].id+'">'+pickHTML(opts[j])+'</button>';
+  }
+  h += '</div>';
+  $("area").innerHTML = h;
+  $("checkout").hidden = false;
+  $("say").textContent = "";
+  if(isRetry) speak("Let's try again. Where is the " + c.word + "?", true);
+  else speak("Where is the " + c.word + "?", true);
+  S.prompted = false;
+
+  bindPicks(onPick);
+
+  /* Two-stage prompt. Give him room to get there himself first — a repeat of
+     the word only, no answer given away. The visual prompt is the last resort.
+     On a correction we cut that window in half: he's already had one go, and
+     the point now is to end on him touching the right card. */
+  clearTimers();
+  var full = S.wait * 1000 * (isRetry ? 0.5 : 1);
+  S.nudgeTimer = setTimeout(function(){
+    speak(c.word + "?", true);
+    $("say").textContent = "Still thinking — give him the room.";
+  }, Math.round(full * 0.5));
+
+  S.promptTimer = setTimeout(function(){
+    S.prompted = true;
+    var all = $("area").querySelectorAll(".pick");
+    for(var i=0;i<all.length;i++){
+      if(all[i].dataset.id === c.id) all[i].classList.add("hintme");
+      else all[i].style.opacity = ".35";
+    }
+    speak("Here it is. " + c.word, true);
+    $("say").textContent = "Prompting — help his hand to it if he needs it. This still counts.";
+  }, full);
+}
+
+function clearTimers(){
+  clearTimeout(S.promptTimer);
+  clearTimeout(S.nudgeTimer);
+}
+
+/* ---------------- touch handling ----------------
+   Three things were losing Ali's taps:
+   1. `click` only fires if press and release land on the same element. A small
+      finger that rolls or drags a few pixels never produced a click at all.
+   2. A tap in the gutter between two cards hit nothing.
+   3. The cards were smaller than they needed to be.
+   So: fire on pointerdown, snap to the nearest card within a tolerance, and
+   let the cards fill the screen. */
+function nearestPick(x, y){
+  var picks = $("area").querySelectorAll(".pick");
+  var best = null, bestD = Infinity;
+  for(var i=0;i<picks.length;i++){
+    if(picks[i].disabled) continue;
+    var r = picks[i].getBoundingClientRect();
+    var dx = Math.max(r.left - x, 0, x - r.right);
+    var dy = Math.max(r.top - y, 0, y - r.bottom);
+    var d = Math.sqrt(dx*dx + dy*dy);
+    if(d < bestD){ bestD = d; best = picks[i]; }
+  }
+  if(!best) return null;
+  return (bestD <= S.slop) ? best : null;
+}
+function showDot(x, y){
+  var d = document.createElement("div");
+  d.className = "dot";
+  d.style.left = x + "px";
+  d.style.top = y + "px";
+  document.body.appendChild(d);
+  setTimeout(function(){ if(d.parentNode) d.parentNode.removeChild(d); }, 520);
+}
+/* One listener for the life of the page. #area's children get replaced every
+   trial but #area itself doesn't, so re-binding per trial stacked handlers and
+   fired a tap several times over. */
+var pickHandler = null, pickLock = false;
+function bindPicks(handler){ pickHandler = handler; pickLock = false; }
+function initTouch(){
+  var area = $("area");
+  area.addEventListener("pointerdown", function(e){
+    if(!pickHandler || pickLock) return;
+    /* adult-facing controls keep their normal click behaviour */
+    if(e.target.closest("#checkout") || e.target.closest(".score")) return;
+    var t = nearestPick(e.clientX, e.clientY);
+    if(!t) return;
+    pickLock = true;
+    e.preventDefault();
+    showDot(e.clientX, e.clientY);
+    t.classList.add("tapped");
+    var h = pickHandler;
+    pickHandler = null;
+    h(t);
+  });
+  /* swallow the synthetic click that trails a touch, so nothing fires twice */
+  area.addEventListener("click", function(e){
+    if(e.target.closest(".pick")) e.preventDefault();
+  });
+}
+
+function onPick(el){
+  clearTimers();
+  var c = S.cur.card;
+  var ok = (el.dataset.id === c.id);
+  revealAll(el, c);
+
+  if(ok){
+    beep("ok");
+    speak(S.retries ? "Yes! " + c.word + "." : c.word + "!", true);
+    $("say").textContent = "";
+    record(true, S.prompted ? "prompted" : "correct");
+    S.retries = 0;
+    setTimeout(advance, 950);
+    return;
+  }
+
+  /* Name what he actually touched. He learns that label, and he learns the
+     target wasn't it — both are teaching. Neutral tone, no penalty sound. */
+  var chosen = cardById(el.dataset.id);
+  var wname = chosen ? chosen.word : "that one";
+  beep("no");
+  record(false, "wrong");
+  $("say").textContent = "That's the " + wname + ". We're looking for the " + c.word + ".";
+  speak("That's the " + wname + ".", true);
+
+  var cap = (S.errmode === "until") ? 3 : (S.errmode === "retry" ? 1 : 0);
+  if(S.retries >= cap){
+    S.retries = 0;
+    setTimeout(advance, 2000);
+    return;
+  }
+  S.retries++;
+  setTimeout(function(){ if(S.running) renderReceptive(c, true); }, 2000);
+}
+
+function renderExpressive(c){
+  $("prompt").innerHTML = "What is this?";
+  $("area").innerHTML =
+    '<div class="single">' + faceHTML(c) + '</div>' +
+    '<div class="score" style="margin-top:20px;">' +
+      '<button data-s="said" class="yes">Said it<small>clear word</small></button>' +
+      '<button data-s="approx">Close<small>approximation</small></button>' +
+      '<button data-s="none">Nothing<small>no response</small></button>' +
+    '</div>';
+  $("checkout").hidden = true;
+  bindPicks(null);
+  speak("What is this?", true);
+  $("say").textContent = "Tap what you heard. Approximations count.";
+  var bs = $("area").querySelectorAll(".score button");
+  for(var i=0;i<bs.length;i++){
+    bs[i].addEventListener("click", function(e){
+      var v = e.currentTarget.dataset.s;
+      if(v !== "none") beep(v === "said" ? "ok" : "soft");
+      record(v !== "none", v);
+      setTimeout(advance, 450);
+    });
+  }
+}
+
+function record(ok, detail){
+  var c = S.cur.card;
+  var ms = Date.now() - S.cur.t0;
+  var independent = (detail === "correct" || detail === "said");
+  c.attempts++;
+  if(independent) c.correct++;
+  /* only unprompted responses build toward mastery */
+  c.hist.push(independent);
+  S.lastWrong = !ok;
+
+  /* Escape-maintained model: the enemy is disengagement, not error.
+     A prompted answer is barely penalised. A checkout is penalised hard. */
+  /* "fast" is relative to the thinking time you gave him, not a fixed clock */
+  var quick = S.wait * 1000 * 0.35, okish = S.wait * 1000 * 0.75;
+  var d;
+  if(independent && ms < quick) d = -9;
+  else if(independent && ms < okish) d = -3;
+  else if(independent) d = 1;
+  else if(detail === "approx") d = -2;
+  else if(detail === "prompted") d = 3;
+  else if(detail === "none") d = 20;
+  else d = 11;
+  S.fatigue = Math.max(0, Math.min(100, S.fatigue + d));
+
+  /* Tokens reward participation, not accuracy — that's the whole point. But
+     only one per trial, or a correction round would pay him twice. */
+  if(detail !== "none" && !S.tokenThisTrial){ S.tokensNow++; S.tokenThisTrial = true; }
+
+  S.log.push({
+    n:S.trial, word:c.word, type:(S.cur.type === "r" ? "receptive" : "expressive"),
+    result:detail, ms:ms, field:S.field, fatigue:Math.round(S.fatigue)
+  });
+  drawMeter();
+}
+
+function advance(){
+  if(!S.running) return;
+  /* escalating supports, gentlest first */
+  if(S.fatigue >= 92 && S.breaks >= 1){
+    S.ended = "Ended early — he was checking out faster than the rewards could pull him back. Pushing past this is what makes tomorrow's session harder, so stopping here is the win.";
+    return finishOnWin();
+  }
+  /* earned the board: he gets the thing he'd otherwise be escaping to */
+  if(S.tokensNow >= S.tokens){ return startBreak(true); }
+  if(S.fatigue >= 78){ return startBreak(false); }
+  if(S.fatigue >= 55 && S.field > 2){ S.field--; }
+  if(S.fatigue >= 38){ S.intersperse = true; }
+  if(S.fatigue <= 18 && S.field < 4 && S.trial > 3){ S.field++; }
+  nextTrial();
+}
+
+/* ---------------- break ---------------- */
+function startBreak(earned){
+  S.breaks++;
+  $("breakemoji").textContent = THEME_BUDDY[S.theme] || "🐘";
+  if(earned){
+    $("breaktitle").textContent = "He earned it — " + S.reinforcer;
+    $("breaktext").textContent = "Hand it over right now, with the word: “You did it — " + S.reinforcer + "!” Getting it fast is what makes the dots mean something next time. Movement counts too — jumping, spinning, a big squeeze.";
+  } else {
+    $("breaktitle").textContent = "Break time";
+    $("breaktext").textContent = "He didn't fill the board, but he's fading — go get " + S.reinforcer + " or move his body for a minute. Coming back is easier than restarting later.";
+  }
+  var left = 30;
+  $("breaktimer").textContent = left;
+  show("s-break");
+  clearInterval(S.breakTimer);
+  S.breakTimer = setInterval(function(){
+    left--;
+    $("breaktimer").textContent = left > 0 ? left : "✓";
+    if(left <= 0) clearInterval(S.breakTimer);
+  }, 1000);
+}
+$("resumebtn").addEventListener("click", function(){
+  clearInterval(S.breakTimer);
+  S.fatigue = Math.max(0, S.fatigue - 34);
+  S.tokensNow = 0;
+  S.field = 2;
+  S.intersperse = true;
+  if(S.breaks >= 4){
+    S.ended = "Four rewards in — he's done real work. Stopping while it's still going well.";
+    return finishOnWin();
+  }
+  show("s-play");
+  nextTrial();
+});
+
+/* ---------------- finish ---------------- */
+function finishOnWin(){
+  /* always end on something he owns */
+  var ma = S.deck.filter(mastered);
+  if(!ma.length || !S.lastWrong) return finish();
+  S.running = true;
+  show("s-play");
+  var c = ma[pick(ma.length)];
+  S.cur = {card:c, type:"r", t0:Date.now()};
+  S.trial++;
+  $("prompt").innerHTML = "Last one — where is the <b>" + c.word + "</b>?";
+  var opts = [c];
+  var pool = S.deck.filter(function(d){ return d.id !== c.id; });
+  shuffle(pool);
+  if(pool.length) opts.push(pool[0]);
+  shuffle(opts);
+  var h = '<div class="choices n' + opts.length + '">';
+  for(var j=0;j<opts.length;j++) h += '<button class="pick" data-id="'+opts[j].id+'">'+pickHTML(opts[j])+'</button>';
+  $("area").innerHTML = h + '</div>';
+  $("say").textContent = "";
+  bindPicks(function(el){
+    var right = (el.dataset.id === c.id);
+    revealAll(el, c);
+    if(right){ beep("ok"); speak(c.word + "!", true); }
+    record(right, right ? "correct" : "wrong");
+    setTimeout(finish, 1000);
+  });
+}
+
+function finish(){
+  S.running = false;
+  clearTimers();
+  clearInterval(S.breakTimer);
+  var n = S.log.length;
+  var indep = S.log.filter(function(l){ return l.result === "correct" || l.result === "said"; }).length;
+  var outs = S.log.filter(function(l){ return l.result === "none"; }).length;
+  var acc = n ? Math.round(indep/n*100) : 0;
+
+  $("donetitle").textContent = "Done for now";
+  $("donesub").textContent = S.name + " stayed with it for " + n + " card" + (n===1?"":"s") + ".";
+  $("st-trials").textContent = n;
+  $("st-acc").textContent = acc + "%";
+  $("st-breaks").textContent = outs;
+
+  var lastHalf = S.log.slice(Math.floor(n/2));
+  var lateOuts = lastHalf.filter(function(l){ return l.result === "none"; }).length;
+  var extra = "";
+  if(outs === 0 && n > 4) extra = " He didn't check out once — whatever you did today, do that again.";
+  else if(lateOuts > outs - lateOuts) extra = " The checkouts clustered in the back half, which usually means the session was a few cards too long rather than too hard. Try stopping earlier next time.";
+  else if(outs > 0) extra = " Checkouts came early, which more often means the demand was too high from the start — try “Touch it” only, or drop to 2 cards per reward.";
+
+  $("whyended").innerHTML = "<strong>What happened</strong>" +
+    (S.ended || "Session complete.") +
+    (S.breaks ? " He earned " + S.breaks + " break" + (S.breaks===1?"":"s") + "." : "") + extra;
+
+  var em = [], mas = [], hard = [];
+  for(var i=0;i<S.deck.length;i++){
+    var c = S.deck[i];
+    if(!c.attempts) continue;
+    var p = Math.round(c.correct/c.attempts*100);
+    var row = '<div class="li"><span>'+c.word+'</span><span class="pct">'+c.correct+'/'+c.attempts+' &middot; '+p+'%</span></div>';
+    if(mastered(c)) mas.push(row);
+    else if(p < 50) hard.push(row);
+    else em.push(row);
+  }
+  var h = "";
+  if(mas.length) h += "<h3>Solid</h3>" + mas.join("");
+  if(em.length) h += "<h3>Emerging</h3>" + em.join("");
+  if(hard.length) h += "<h3>Needs work</h3>" + hard.join("");
+  $("itemlist").innerHTML = h || '<div class="li"><span>No cards attempted.</span></div>';
+
+  show("s-done");
+}
+
+$("againbtn").addEventListener("click", function(){ $("startbtn").click(); });
+$("homebtn").addEventListener("click", function(){ show("s-setup"); });
+$("exportbtn").addEventListener("click", function(){
+  var rows = ["trial,word,type,result,response_ms,field_size,fatigue_after"];
+  for(var i=0;i<S.log.length;i++){
+    var l = S.log[i];
+    rows.push([l.n, l.word, l.type, l.result, l.ms, l.field, l.fatigue].join(","));
+  }
+  rows.push("");
+  rows.push("# breaks," + S.breaks);
+  rows.push("# ended," + '"' + (S.ended || "complete").replace(/"/g,"'") + '"');
+  dl(rows.join("\n"), "quiet-cards-session.csv", "text/csv");
+});
+
+/* ---------------- boot ---------------- */
+for(var i=0;i<STARTER.length;i++) S.deck.push(newCard(STARTER[i][0], STARTER[i][1], null));
+drawDeck();
+document.body.dataset.theme = S.theme;
+
+initTouch();
+
+/* voice list arrives asynchronously on most browsers */
+loadVoices();
+if(window.speechSynthesis){
+  window.speechSynthesis.onvoiceschanged = loadVoices;
+  setTimeout(loadVoices, 300);
+  setTimeout(loadVoices, 1200);
+}
+
+})();
+</script>
+</body>
+</html>
