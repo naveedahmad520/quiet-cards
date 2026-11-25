@@ -282,6 +282,7 @@
       <div class="row" style="margin-top:9px;">
         <button class="ghost" id="testvoice">Hear it</button>
       </div>
+      <p class="hint" id="voice-status" hidden></p>
       <p class="hint">Whatever's on the iPad — female voices are listed first. Tap "Hear it" and pick the one he responds to. On an iPad, Samantha or Nicky usually sound the warmest.</p>
     </div>
 
@@ -509,7 +510,21 @@ function loadVoices(){
     VOICES.sort(function(a,b){ return voiceScore(b) - voiceScore(a); });
     var sel = $("voicepick");
     if(!sel) return;
-    if(!VOICES.length){ sel.innerHTML = '<option value="">Device default</option>'; return; }
+    var st = $("voice-status");
+    if(!VOICES.length){
+      sel.innerHTML = '<option value="">Device default</option>';
+      if(st){
+        st.hidden = false;
+        st.textContent = window.speechSynthesis
+          ? "Still looking for voices on this device. Tap the menu or \"Hear it\" to check again. If the list stays empty, open the app in Safari or Chrome instead of a preview window."
+          : "This viewer can't speak. Open the app in Safari or Chrome to get the voice options.";
+      }
+      return;
+    }
+    if(st) st.hidden = true;
+    /* don't rebuild the list if nothing changed, so an open menu isn't reset */
+    if(sel.options.length === VOICES.length && sel.dataset.filled === "1") return;
+    sel.dataset.filled = "1";
     var h = "";
     for(var i=0;i<VOICES.length;i++){
       var v = VOICES[i];
@@ -519,7 +534,10 @@ function loadVoices(){
     sel.innerHTML = h;
     if(!S.voiceURI) S.voiceURI = VOICES[0].voiceURI;
     sel.value = encodeURIComponent(S.voiceURI);
-  }catch(e){}
+  }catch(e){
+    var st2 = $("voice-status");
+    if(st2){ st2.hidden = false; st2.textContent = "This viewer can't speak. Open the app in Safari or Chrome to get the voice options."; }
+  }
 }
 function getVoice(){
   for(var i=0;i<VOICES.length;i++) if(VOICES[i].voiceURI === S.voiceURI) return VOICES[i];
@@ -571,11 +589,15 @@ segs("seg-wait","wait");
 segs("seg-slop","slop");
 segs("seg-err","errmode");
 
+/* re-check for voices whenever the menu is touched; iOS often fills the list late */
+$("voicepick").addEventListener("focus", loadVoices);
+$("voicepick").addEventListener("touchstart", loadVoices, {passive:true});
 $("voicepick").addEventListener("change", function(){
   S.voiceURI = decodeURIComponent(this.value);
 });
 $("testvoice").addEventListener("click", function(){
   primeSpeech();
+  loadVoices();
   var was = S.sensory;
   if(S.sensory === "calm") S.sensory = "soft";
   speak((S.name ? "Hi " + S.name + "! " : "Hi! ") + "Where is the ball?", true);
@@ -1119,10 +1141,18 @@ initTouch();
 /* voice list arrives asynchronously on most browsers */
 loadVoices();
 if(window.speechSynthesis){
-  window.speechSynthesis.onvoiceschanged = loadVoices;
-  setTimeout(loadVoices, 300);
-  setTimeout(loadVoices, 1200);
+  if(window.speechSynthesis.addEventListener) window.speechSynthesis.addEventListener("voiceschanged", loadVoices);
+  else window.speechSynthesis.onvoiceschanged = loadVoices;
+  /* Safari doesn't always fire voiceschanged, so keep checking for ~10 seconds */
+  var tries = 0;
+  var poll = setInterval(function(){
+    tries++;
+    loadVoices();
+    if(VOICES.length || tries >= 20) clearInterval(poll);
+  }, 500);
 }
+/* coming back to the tab can also bring voices in */
+document.addEventListener("visibilitychange", function(){ if(!document.hidden) loadVoices(); });
 
 })();
 </script>
